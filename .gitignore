@@ -1,0 +1,16 @@
+# Ignore environment variable files
+.env
+.env.local
+.env.*.local
+
+# Ignore node_modules
+node_modules
+.cursor/
+
+# Ignore build output
+build/
+dist/
+out/
+
+media/music/
+media/video/
