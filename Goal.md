@@ -1,0 +1,1 @@
+The goal is to create an Environment where i can track, Goals, set to-do list, Pomodoro Timer, and also a space for calming, with snoothing music, background & quotes, with all the times that i have studied (how much i have studied for what i'v have completed on that time) and all of my study session's history should be stored for summary.
