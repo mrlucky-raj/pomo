@@ -1,18 +1,22 @@
 import React from 'react';
-import { Flame, Clock, CheckCircle2, Calendar, Award, Sparkles, TrendingUp, BookOpen, Layers } from 'lucide-react';
+import { Flame, Clock, CheckCircle2, Award, TrendingUp, Layers, CheckSquare, Zap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { getTheme } from '../../utils/theme';
+import { storage } from '../../services/storage';
 
-export default function StatsPage({ stats = {}, sessions = [], tasks = [] }) {
-  const totalMinutes = stats.totalFocusMinutes || 0;
+export default function StatsPage({ stats = {}, sessions = [], tasks = [], themeColor = 'emerald' }) {
+  const analytics = storage.getAnalyticsSummary();
+  const theme = getTheme(themeColor);
+
+  const totalMinutes = Math.round(analytics.totalFocusTimeSeconds / 60);
   const hours = Math.floor(totalMinutes / 60);
   const remainingMins = totalMinutes % 60;
-  const totalCompletedPomos = stats.totalCompletedPomodoros || 0;
-  const completedTasksCount = tasks.filter(t => t.completed).length;
   const streakDays = stats.streakDays || 1;
 
   // Prepare last 7 days chart data
   const getLast7DaysData = () => {
     const days = [];
+    const allSessions = storage.getSessions();
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -20,13 +24,13 @@ export default function StatsPage({ stats = {}, sessions = [], tasks = [] }) {
       const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
 
       // Calculate focus minutes on this date
-      const minutesOnDay = sessions
-        .filter(s => s.completedAt && s.completedAt.split('T')[0] === dateStr)
-        .reduce((acc, s) => acc + (s.durationMinutes || 25), 0);
+      const secondsOnDay = allSessions
+        .filter(s => (s.started_at || s.created_at || '').split('T')[0] === dateStr && s.status === 'completed')
+        .reduce((acc, s) => acc + (s.duration_seconds || (s.durationMinutes ? s.durationMinutes * 60 : 1500)), 0);
 
       days.push({
         day: dayLabel,
-        minutes: minutesOnDay,
+        minutes: Math.round(secondsOnDay / 60),
         date: dateStr,
       });
     }
@@ -35,35 +39,61 @@ export default function StatsPage({ stats = {}, sessions = [], tasks = [] }) {
 
   const chartData = getLast7DaysData();
 
+  // Enriched session history table
+  const allSessions = storage.getSessions();
+  const allSessionTasks = storage.getSessionTasks();
+  const allTaskEvents = storage.getTaskEvents();
+  const allTasks = storage.getTasks();
+
+  const sessionHistory = allSessions.slice(-10).reverse().map(session => {
+    const attachedTaskIds = allSessionTasks
+      .filter(st => st.session_id === session.id)
+      .map(st => st.task_id);
+    const tasksWorkedOn = allTasks.filter(t => attachedTaskIds.includes(t.id));
+
+    const completedEventTaskIds = allTaskEvents
+      .filter(te => te.session_id === session.id && te.event_type === 'completed')
+      .map(te => te.task_id);
+    const tasksCompletedInSession = allTasks.filter(t => completedEventTaskIds.includes(t.id));
+
+    return {
+      session,
+      tasksWorkedOn,
+      tasksCompletedInSession,
+    };
+  });
+
   return (
     <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 pb-24 text-slate-100 animate-fadeIn">
       {/* Top Banner */}
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
-          <span>Study Analytics & States</span>
-          <TrendingUp className="w-6 h-6 text-emerald-400" />
+          <span>Study Analytics & Focus History</span>
+          <TrendingUp className={`w-6 h-6 ${theme.text}`} />
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          Track your focus performance, streak records, study sessions, and task completions.
+          Detailed metrics from focus_sessions, tasks, session_tasks, and task_events.
         </p>
       </div>
 
-      {/* Metric Highlight Cards */}
+      {/* Metric Highlight Cards (Glassmorphic) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {/* Card 1: Total Study Time */}
-        <div className="glass-panel p-5 rounded-2xl border border-emerald-500/20 shadow-lg">
-          <div className="flex items-center space-x-2 text-emerald-400 mb-2">
+        <div className="glass-panel p-5 rounded-3xl border border-white/15 shadow-xl">
+          <div className={`flex items-center space-x-2 ${theme.text} mb-2`}>
             <Clock className="w-4 h-4" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Studied</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Total Focus Time</span>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono">
-            {hours}<span className="text-sm text-emerald-400 font-normal">h</span> {remainingMins}<span className="text-sm text-emerald-400 font-normal">m</span>
+            {hours}<span className={`text-sm ${theme.text} font-normal`}>h</span> {remainingMins}<span className={`text-sm ${theme.text} font-normal`}>m</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Accumulated focus hours</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Today: {Math.round(analytics.focusTimeTodaySeconds / 60)}m
+          </p>
         </div>
 
         {/* Card 2: Streak */}
-        <div className="glass-panel p-5 rounded-2xl border border-amber-500/20 shadow-lg">
+        <div className="glass-panel p-5 rounded-3xl border border-amber-500/30 shadow-xl">
           <div className="flex items-center space-x-2 text-amber-400 mb-2">
             <Flame className="w-4 h-4" />
             <span className="text-xs font-semibold uppercase tracking-wider">Study Streak</span>
@@ -71,150 +101,157 @@ export default function StatsPage({ stats = {}, sessions = [], tasks = [] }) {
           <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono">
             {streakDays} <span className="text-base text-amber-400 font-normal">Days 🔥</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Daily consistency</p>
+          <p className="text-[11px] text-slate-400 mt-1">Daily consistency record</p>
         </div>
 
-        {/* Card 3: Completed Pomodoros */}
-        <div className="glass-panel p-5 rounded-2xl border border-cyan-500/20 shadow-lg">
+        {/* Card 3: Completed Focus Sessions */}
+        <div className="glass-panel p-5 rounded-3xl border border-cyan-500/30 shadow-xl">
           <div className="flex items-center space-x-2 text-cyan-400 mb-2">
             <Award className="w-4 h-4" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Pomodoros</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Focus Sessions</span>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono">
-            🍅 {totalCompletedPomos}
+            {analytics.totalCompletedSessions} <span className="text-sm font-normal text-cyan-300">sessions</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Focus intervals</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Avg {Math.round(analytics.avgSessionDurationSeconds / 60)}m per session
+          </p>
         </div>
 
-        {/* Card 4: Tasks Done */}
-        <div className="glass-panel p-5 rounded-2xl border border-purple-500/20 shadow-lg">
+        {/* Card 4: Tasks Breakdown */}
+        <div className="glass-panel p-5 rounded-3xl border border-purple-500/30 shadow-xl">
           <div className="flex items-center space-x-2 text-purple-400 mb-2">
             <CheckCircle2 className="w-4 h-4" />
             <span className="text-xs font-semibold uppercase tracking-wider">Tasks Done</span>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono">
-            {completedTasksCount} / {tasks.length}
+            {analytics.totalCompletedTasks}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            {tasks.length > 0 ? `${Math.round((completedTasksCount / tasks.length) * 100)}% completed` : 'No tasks yet'}
+            {analytics.tasksCompletedInSessions} in sessions • {analytics.tasksCompletedOutsideSessions} solo
           </p>
         </div>
       </div>
 
-      {/* Main Graph & Task Progress Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Left 2 Columns: 7 Days Focus Activity Chart */}
-        <div className="lg:col-span-2 glass-panel p-6 rounded-3xl border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-emerald-400" />
+      {/* 7-Day Focus Time Bar Chart (Glassmorphic) */}
+      <div className="glass-panel p-6 rounded-3xl border border-white/15 shadow-2xl mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
               <span>Weekly Focus Time (Minutes)</span>
-            </h3>
-            <span className="text-xs text-slate-400 font-mono">Last 7 Days</span>
+            </h2>
+            <p className="text-xs text-slate-400">Calculated from focus_sessions table duration_seconds</p>
           </div>
-
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                <XAxis dataKey="day" stroke="#64748b" fontSize={11} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '14px', color: '#fff', fontSize: '12px' }}
-                  formatter={(val) => [`${val} mins`, 'Study Duration']}
-                />
-                <Bar dataKey="minutes" radius={[8, 8, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.minutes > 0 ? '#10b981' : '#334155'}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className={`px-3 py-1 rounded-full text-xs font-mono font-bold ${theme.bgLight} ${theme.textLight} ${theme.border}`}>
+            7-DAY TREND
           </div>
         </div>
 
-        {/* Right 1 Column: Task Completion Progress Bar */}
-        <div className="glass-panel p-6 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-              <BookOpen className="w-4 h-4 text-emerald-400" />
-              <span>Task Progress</span>
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1.5">
-                  <span className="text-slate-300">Completion Ratio</span>
-                  <span className="text-emerald-400">
-                    {tasks.length > 0 ? Math.round((completedTasksCount / tasks.length) * 100) : 0}%
-                  </span>
-                </div>
-                <div className="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-800">
-                  <div
-                    className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0}%` }}
+        <div className="h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                  backdropFilter: 'blur(12px)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: '12px',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                }}
+                formatter={(val) => [`${val} mins`, 'Focus Time']}
+              />
+              <Bar dataKey="minutes" radius={[8, 8, 0, 0]}>
+                {chartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={entry.minutes > 0 ? theme.hex : '#334155'}
                   />
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Tasks:</span>
-                  <span className="font-semibold text-white">{tasks.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Completed:</span>
-                  <span className="font-semibold text-emerald-400">{completedTasksCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Pending:</span>
-                  <span className="font-semibold text-amber-400">{tasks.length - completedTasksCount}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Recent Focus Session Log Table */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 shadow-xl">
-        <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-          <Layers className="w-4 h-4 text-emerald-400" />
-          <span>Completed Session Log</span>
-        </h3>
-        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-          {sessions.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-xs italic">
-              No completed sessions recorded yet. Finish a Pomodoro timer session to start logging!
-            </div>
-          ) : (
-            sessions.slice(0, 15).map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-xs"
-              >
-                <div className="flex items-center space-x-3 min-w-0">
-                  <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 font-mono font-bold">
-                    {s.durationMinutes}m
-                  </span>
-                  <div className="truncate">
-                    <p className="font-semibold text-slate-100 truncate">{s.taskTitle || 'Focus Session'}</p>
-                    <p className="text-[10px] text-slate-400">
-                      {new Date(s.completedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                    </p>
-                  </div>
-                </div>
-                <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-semibold ${
-                  s.synced ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                }`}>
-                  {s.synced ? 'Realtime DB' : 'Local Queue'}
-                </span>
-              </div>
-            ))
-          )}
+      {/* Detailed Focus Sessions & Tasks Log (Glassmorphic) */}
+      <div className="glass-panel p-6 rounded-3xl border border-white/15 shadow-2xl">
+        <div className="flex items-center space-x-2 mb-4">
+          <Layers className={`w-5 h-5 ${theme.text}`} />
+          <h2 className="text-base font-bold text-white">Focus Sessions & Session Tasks History</h2>
         </div>
+
+        {sessionHistory.length === 0 ? (
+          <div className="text-center py-10 text-slate-400 text-sm italic">
+            No focus sessions logged yet. Start the Pomodoro timer to record your first focus session!
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-300">
+              <thead className="text-[11px] font-mono text-slate-400 uppercase border-b border-white/10">
+                <tr>
+                  <th className="py-3 px-4">Session ID</th>
+                  <th className="py-3 px-4">Duration</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Tasks Worked On (session_tasks)</th>
+                  <th className="py-3 px-4">Tasks Completed (task_events)</th>
+                  <th className="py-3 px-4 text-right">Started At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {sessionHistory.map(({ session, tasksWorkedOn, tasksCompletedInSession }) => (
+                  <tr key={session.id} className="hover:bg-white/5 transition-colors">
+                    <td className="py-3 px-4 font-mono font-bold text-slate-400 truncate max-w-[120px]">
+                      {session.id}
+                    </td>
+                    <td className="py-3 px-4 font-mono font-bold">
+                      <span className={`px-2 py-0.5 rounded-md ${theme.bgLight} ${theme.textLight}`}>
+                        {Math.round((session.duration_seconds || (session.durationMinutes ? session.durationMinutes * 60 : 1500)) / 60)}m
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 uppercase text-[10px] font-mono font-bold tracking-wider">
+                      <span className={session.status === 'completed' ? 'text-emerald-400' : 'text-amber-400'}>
+                        {session.status || 'completed'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {tasksWorkedOn.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {tasksWorkedOn.map(t => (
+                            <span key={t.id} className="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-200 border border-slate-700">
+                              {t.title}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 italic">General Focus</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      {tasksCompletedInSession.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {tasksCompletedInSession.map(t => (
+                            <span key={t.id} className="px-2 py-0.5 rounded bg-emerald-500/20 text-[10px] text-emerald-300 border border-emerald-500/40 font-bold">
+                              ✓ {t.title}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 italic">None completed</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-slate-400">
+                      {session.started_at ? new Date(session.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

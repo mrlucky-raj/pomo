@@ -1,20 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import BackgroundContainer from './components/Background/BackgroundContainer';
 import PomodoroTimer from './components/Timer/PomodoroTimer';
 import QuickTodoList from './components/Tasks/QuickTodoList';
-import TaskDrawerModal from './components/Tasks/TaskDrawerModal';
 import AudioPlayerUI, { MUSIC_TRACKS } from './components/Audio/AudioPlayer';
 import QuoteWidget from './components/Quotes/QuoteWidget';
-import AnalyticsModal from './components/Analytics/AnalyticsModal';
-import AuthModal from './components/Auth/AuthModal';
-import BackgroundPickerModal from './components/Background/BackgroundPickerModal';
-import SettingsModal from './components/Settings/SettingsModal';
-import VisionBoardPage from './components/Vision/VisionBoardPage';
-import StatsPage from './components/Stats/StatsPage';
-import Draggable from 'react-draggable';
 
 import { storage } from './services/storage';
-import { Home, LayoutGrid, BarChart2, Image, Settings, Eye, EyeOff } from 'lucide-react';
+import { getTheme } from './utils/theme';
+import { Home, BarChart2, Eye } from 'lucide-react';
+
+// Lazy load heavy page sections and modals for lightning-fast initial load & low RAM memory usage
+const StatsPage = lazy(() => import('./components/Stats/StatsPage'));
+const SettingsModal = lazy(() => import('./components/Settings/SettingsModal'));
+const TaskDrawerModal = lazy(() => import('./components/Tasks/TaskDrawerModal'));
+const BackgroundPickerModal = lazy(() => import('./components/Background/BackgroundPickerModal'));
+const AnalyticsModal = lazy(() => import('./components/Analytics/AnalyticsModal'));
+const AuthModal = lazy(() => import('./components/Auth/AuthModal'));
+const NotesModal = lazy(() => import('./components/Notes/NotesModal'));
 
 export default function App() {
   // Data States loaded from Storage
@@ -26,7 +28,7 @@ export default function App() {
   const [activeTaskId, setActiveTaskId] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ state: 'idle' });
 
-  // Active Page Navigation State ('home' | 'vision' | 'stats')
+  // Active Page Navigation State ('home' | 'stats')
   const [currentPage, setCurrentPage] = useState('home');
 
   // UI Visibility & Modals
@@ -36,12 +38,15 @@ export default function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isBackgroundOpen, setIsBackgroundOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
 
   // Background Audio Engine State (Persists across all page navigation)
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const [activeTrackIndex, setActiveTrackIndex] = useState(0);
   const audioRef = useRef(null);
   const currentTrack = MUSIC_TRACKS[activeTrackIndex] || MUSIC_TRACKS[0];
+
+  const theme = getTheme(settings.themeColor);
 
   const handleTogglePlayMusic = () => {
     if (!audioRef.current) return;
@@ -76,6 +81,48 @@ export default function App() {
       }
     }, 100);
   };
+
+  const handleSelectTrack = (idx) => {
+    setActiveTrackIndex(idx);
+    setIsPlayingMusic(false);
+    setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(err => console.log(err));
+      }
+    }, 100);
+  };
+
+  // Synchronize OS/Browser Media Metadata Tags & Media Keys (Windows / macOS / Mobile Now Playing)
+  useEffect(() => {
+    if ('mediaSession' in navigator && currentTrack) {
+      try {
+        navigator.mediaSession.metadata = new window.MediaMetadata({
+          title: currentTrack.title,
+          artist: currentTrack.artist || 'Lo-Fi Focus Music',
+          album: currentTrack.album || 'Pomo Ambient Workspace',
+          artwork: [
+            { src: '/favicon.svg', sizes: '512x512', type: 'image/svg+xml' },
+          ],
+        });
+
+        navigator.mediaSession.setActionHandler('play', () => {
+          if (audioRef.current) {
+            audioRef.current.play().then(() => setIsPlayingMusic(true)).catch((err) => console.log(err));
+          }
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            setIsPlayingMusic(false);
+          }
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', handlePrevTrack);
+        navigator.mediaSession.setActionHandler('nexttrack', handleNextTrack);
+      } catch (err) {
+        // Ignore unsupported media session actions
+      }
+    }
+  }, [currentTrack, isPlayingMusic]);
 
   // Subscribe to storage changes & network status
   useEffect(() => {
@@ -140,9 +187,16 @@ export default function App() {
 
   const activeTask = tasks.find(t => t.id === activeTaskId);
 
+  // Read Widget Visibility Toggles from Settings
+  const showNavBtns = settings.showNavBtns ?? true;
+  const showTimer = settings.showTimer ?? true;
+  const showTodoList = settings.showTodoList ?? true;
+  const showQuotes = settings.showQuotes ?? true;
+  const showMusicPlayer = settings.showMusicPlayer ?? true;
+
   return (
-    <div className="relative min-h-screen w-full flex flex-col justify-between text-slate-100 overflow-x-hidden font-sans select-none">
-      {/* 1. Global Persistent Audio Tag (Music continues playing across all pages) */}
+    <div className={`relative min-h-screen w-full flex flex-col justify-between text-slate-100 overflow-x-hidden font-sans select-none theme-${settings.themeColor || 'emerald'}`}>
+      {/* 1. Global Persistent Audio Tag */}
       <audio
         ref={audioRef}
         src={currentTrack.src}
@@ -154,123 +208,92 @@ export default function App() {
       {/* 2. Dynamic Ambient Background Engine */}
       <BackgroundContainer settings={settings} />
 
-      {/* 3. Top Header Navigation (Logo & Realtime DB badge removed) */}
-      <header className={`relative z-40 flex items-center justify-between p-4 sm:p-6 transition-all duration-500 ${
-        isZenMode ? 'opacity-0 pointer-events-none -translate-y-6' : 'opacity-100'
+      {/* 3. Top Header Navigation */}
+      <header className={`relative z-40 flex items-center justify-between p-4 sm:p-6 transition-opacity duration-75 ${
+        isZenMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}>
-        {/* Left Side: Empty clean layout */}
         <div className="w-10" />
 
-        {/* Top-Middle: Navigation Dock with JUST ICONS */}
-        <nav className="fixed left-1/2 -translate-x-1/2 top-4 flex items-center p-1.5 rounded-full glass-panel shadow-2xl border border-slate-700/60 backdrop-blur-xl z-50">
-          <button
-            onClick={() => setCurrentPage('home')}
-            className={`p-2.5 rounded-full transition-all flex items-center justify-center ${
-              currentPage === 'home'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-            title="Home Workspace"
-          >
-            <Home className="w-5 h-5" />
-          </button>
+        {/* Top-Middle: Navigation Dock */}
+        {showNavBtns && (
+          <nav className="fixed left-1/2 -translate-x-1/2 top-4 flex items-center p-1.5 rounded-full glass-panel shadow-2xl border border-white/10 z-50">
+            <button
+              onClick={() => setCurrentPage('home')}
+              className={`p-2.5 rounded-full transition-colors duration-75 flex items-center justify-center ${
+                currentPage === 'home'
+                  ? `${theme.bg} ${theme.textDark} ${theme.glow}`
+                  : 'text-slate-400 hover:text-white hover:bg-white/10'
+              }`}
+              title="Home Workspace"
+            >
+              <Home className="w-5 h-5" />
+            </button>
 
-          <button
-            onClick={() => setCurrentPage('vision')}
-            className={`p-2.5 rounded-full transition-all flex items-center justify-center ${
-              currentPage === 'vision'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-            title="Vision Board"
-          >
-            <LayoutGrid className="w-5 h-5" />
-          </button>
+            <button
+              onClick={() => setCurrentPage('stats')}
+              className={`p-2.5 rounded-full transition-colors duration-75 flex items-center justify-center ${
+                currentPage === 'stats'
+                  ? `${theme.bg} ${theme.textDark} ${theme.glow}`
+                  : 'text-slate-400 hover:text-white hover:bg-white/10'
+              }`}
+              title="Study Analytics & States"
+            >
+              <BarChart2 className="w-5 h-5" />
+            </button>
+          </nav>
+        )}
 
-          <button
-            onClick={() => setCurrentPage('stats')}
-            className={`p-2.5 rounded-full transition-all flex items-center justify-center ${
-              currentPage === 'stats'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-            title="Study Analytics & States"
-          >
-            <BarChart2 className="w-5 h-5" />
-          </button>
-        </nav>
-
-        {/* Right Side Controls */}
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setIsBackgroundOpen(true)}
-            className="p-2.5 rounded-2xl glass-pill text-slate-300 hover:text-white hover:border-slate-600 transition-all"
-            title="Change Ambient Background"
-          >
-            <Image className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2.5 rounded-2xl glass-pill text-slate-300 hover:text-white hover:border-slate-600 transition-all"
-            title="Timer & Preferences"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setIsZenMode(!isZenMode)}
-            className="p-2.5 rounded-2xl bg-slate-900/60 border border-slate-700 text-slate-300 hover:text-white transition-all"
-            title="Toggle Zen Focus Mode"
-          >
-            {isZenMode ? <EyeOff className="w-4 h-4 text-emerald-400" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
+        <div className="w-10" />
       </header>
 
-      {/* 4. Page Content Viewport */}
+      {/* 4. Page Content Viewport with Suspense Code Splitting */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-4 my-auto min-h-[80vh]">
-        {/* PAGE 1: HOME WORKSPACE */}
         {currentPage === 'home' && (
           <div className="relative w-full flex-1 flex flex-col items-center justify-center min-h-[75vh]">
-            {/* Draggable Quick Tasks Panel (Header Drag Handle with Viewport Clamping) */}
-            <div className={`transition-opacity duration-500 ${
-              isZenMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
-            }`}>
-              <QuickTodoList
-                tasks={tasks}
-                activeTaskId={activeTaskId}
-                onSelectActiveTask={(id) => setActiveTaskId(id === activeTaskId ? null : id)}
-                onSaveTask={handleSaveTask}
-                onDeleteTask={handleDeleteTask}
-                onOpenFullModal={() => setIsTaskModalOpen(true)}
-              />
-            </div>
+            {/* Draggable Quick Tasks Panel */}
+            {showTodoList && (
+              <div className={`transition-opacity duration-75 ${
+                isZenMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}>
+                <QuickTodoList
+                  tasks={tasks}
+                  activeTaskId={activeTaskId}
+                  onSelectActiveTask={(id) => setActiveTaskId(id === activeTaskId ? null : id)}
+                  onSaveTask={handleSaveTask}
+                  onDeleteTask={handleDeleteTask}
+                  onOpenFullModal={() => setIsTaskModalOpen(true)}
+                  themeColor={settings.themeColor}
+                />
+              </div>
+            )}
 
             {/* Draggable 8-Bit Pomodoro Timer Panel */}
-            <div className={`transition-all duration-500 ${isZenMode ? 'scale-110' : 'scale-100'}`}>
-              <PomodoroTimer
-                settings={settings}
-                activeTask={activeTask}
-                onCompleteSession={handleCompleteSession}
-                onTaskCompleted={() => {
-                  if (activeTask) handleSaveTask({ ...activeTask, completed: true });
-                }}
-                onStartFocus={() => {
-                  if (!isPlayingMusic) handleTogglePlayMusic();
-                }}
-              />
-            </div>
+            {showTimer && (
+              <div className={`transition-transform duration-75 ${isZenMode ? 'scale-110' : 'scale-100'}`}>
+                <PomodoroTimer
+                  settings={settings}
+                  activeTask={activeTask}
+                  onCompleteSession={handleCompleteSession}
+                  onTaskCompleted={() => {
+                    if (activeTask) handleSaveTask({ ...activeTask, completed: true });
+                  }}
+                  onStartFocus={() => {
+                    if (!isPlayingMusic) handleTogglePlayMusic();
+                  }}
+                  onOpenSettings={() => setIsSettingsOpen(true)}
+                />
+              </div>
+            )}
 
             {/* Draggable Quotes Widget Panel */}
-            <div className={`transition-opacity duration-500 ${
-              isZenMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
-            }`}>
-              <QuoteWidget />
-            </div>
+            {showQuotes && (
+              <div className="transition-opacity duration-75 opacity-100">
+                <QuoteWidget themeColor={settings.themeColor} />
+              </div>
+            )}
 
-            {/* Mini Music Player UI (Rendered ONLY on Home Page at Bottom Left) */}
-            {!isZenMode && (
+            {/* Unified Bottom-Left Dock (Music Player + Tools) */}
+            {showMusicPlayer && !isZenMode && (
               <div className="fixed bottom-6 left-6 z-30">
                 <AudioPlayerUI
                   isPlaying={isPlayingMusic}
@@ -278,20 +301,30 @@ export default function App() {
                   onTogglePlay={handleTogglePlayMusic}
                   onNextTrack={handleNextTrack}
                   onPrevTrack={handlePrevTrack}
+                  onSelectTrack={handleSelectTrack}
+                  onOpenBackground={() => setIsBackgroundOpen(true)}
+                  onOpenSettings={() => setIsSettingsOpen(true)}
+                  onOpenNotes={() => setIsNotesOpen(true)}
+                  onToggleTodoList={() => handleUpdateSettings({ showTodoList: !showTodoList })}
+                  showTodoList={showTodoList}
+                  onToggleZenMode={() => setIsZenMode(!isZenMode)}
+                  isZenMode={isZenMode}
+                  themeColor={settings.themeColor}
                 />
               </div>
             )}
           </div>
         )}
 
-        {/* PAGE 2: VISION BOARD */}
-        {currentPage === 'vision' && (
-          <VisionBoardPage />
-        )}
-
-        {/* PAGE 3: STUDY ANALYTICS & STATES */}
+        {/* Lazy Loaded Analytics & States Page */}
         {currentPage === 'stats' && (
-          <StatsPage stats={stats} sessions={sessions} tasks={tasks} />
+          <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[50vh]">
+              <div className="w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          }>
+            <StatsPage stats={stats} sessions={sessions} tasks={tasks} themeColor={settings.themeColor} />
+          </Suspense>
         )}
       </main>
 
@@ -306,45 +339,64 @@ export default function App() {
         </button>
       )}
 
-      {/* 5. Modals */}
-      <TaskDrawerModal
-        isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        tasks={tasks}
-        activeTaskId={activeTaskId}
-        onSelectActiveTask={(id) => setActiveTaskId(id === activeTaskId ? null : id)}
-        onSaveTask={handleSaveTask}
-        onDeleteTask={handleDeleteTask}
-      />
+      {/* 5. Lazy Loaded Modals (Zero RAM impact when closed) */}
+      <Suspense fallback={null}>
+        {isTaskModalOpen && (
+          <TaskDrawerModal
+            isOpen={isTaskModalOpen}
+            onClose={() => setIsTaskModalOpen(false)}
+            tasks={tasks}
+            activeTaskId={activeTaskId}
+            onSelectActiveTask={(id) => setActiveTaskId(id === activeTaskId ? null : id)}
+            onSaveTask={handleSaveTask}
+            onDeleteTask={handleDeleteTask}
+          />
+        )}
 
-      <AnalyticsModal
-        isOpen={isAnalyticsOpen}
-        onClose={() => setIsAnalyticsOpen(false)}
-        stats={stats}
-        sessions={sessions}
-        tasks={tasks}
-      />
+        {isAnalyticsOpen && (
+          <AnalyticsModal
+            isOpen={isAnalyticsOpen}
+            onClose={() => setIsAnalyticsOpen(false)}
+            stats={stats}
+            sessions={sessions}
+            tasks={tasks}
+          />
+        )}
 
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        storage={storage}
-        syncStatus={syncStatus}
-      />
+        {isAuthOpen && (
+          <AuthModal
+            isOpen={isAuthOpen}
+            onClose={() => setIsAuthOpen(false)}
+            storage={storage}
+            syncStatus={syncStatus}
+          />
+        )}
 
-      <BackgroundPickerModal
-        isOpen={isBackgroundOpen}
-        onClose={() => setIsBackgroundOpen(false)}
-        settings={settings}
-        onUpdateSettings={handleUpdateSettings}
-      />
+        {isBackgroundOpen && (
+          <BackgroundPickerModal
+            isOpen={isBackgroundOpen}
+            onClose={() => setIsBackgroundOpen(false)}
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+          />
+        )}
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onUpdateSettings={handleUpdateSettings}
-      />
+        {isSettingsOpen && (
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+          />
+        )}
+
+        {isNotesOpen && (
+          <NotesModal
+            isOpen={isNotesOpen}
+            onClose={() => setIsNotesOpen(false)}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

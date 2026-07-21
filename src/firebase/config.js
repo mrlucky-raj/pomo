@@ -2,19 +2,19 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
-// Reads both standard .env keys (apiKey, authDomain...) and VITE_ prefixed keys
-const getEnvVar = (key, viteKey) => {
-  return import.meta.env[viteKey] || import.meta.env[key] || '';
+// Reads both standard .env keys and Vite environment variables with hardcoded fallbacks
+const getEnvVar = (key, viteKey, fallback) => {
+  return import.meta.env[viteKey] || import.meta.env[key] || fallback;
 };
 
 const firebaseConfig = {
-  apiKey: getEnvVar('apiKey', 'VITE_FIREBASE_API_KEY'),
-  authDomain: getEnvVar('authDomain', 'VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: getEnvVar('projectId', 'VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: getEnvVar('storageBucket', 'VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnvVar('messagingSenderId', 'VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnvVar('appId', 'VITE_FIREBASE_APP_ID'),
-  databaseURL: getEnvVar('databaseUrl', 'VITE_FIREBASE_DATABASE_URL'),
+  apiKey: getEnvVar('apiKey', 'VITE_FIREBASE_API_KEY', 'AIzaSyDixPUTPnyFZRWwfNwG4nWeKo4hagIl_ls'),
+  authDomain: getEnvVar('authDomain', 'VITE_FIREBASE_AUTH_DOMAIN', 'pomo-mrlucky.firebaseapp.com'),
+  projectId: getEnvVar('projectId', 'VITE_FIREBASE_PROJECT_ID', 'pomo-mrlucky'),
+  storageBucket: getEnvVar('storageBucket', 'VITE_FIREBASE_STORAGE_BUCKET', 'pomo-mrlucky.firebasestorage.app'),
+  messagingSenderId: getEnvVar('messagingSenderId', 'VITE_FIREBASE_MESSAGING_SENDER_ID', '771967974959'),
+  appId: getEnvVar('appId', 'VITE_FIREBASE_APP_ID', '1:771967974959:web:2237abcbdfec20950550da'),
+  databaseURL: getEnvVar('databaseUrl', 'VITE_FIREBASE_DATABASE_URL', 'https://pomo-mrlucky-default-rtdb.asia-southeast1.firebasedatabase.app'),
 };
 
 const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
@@ -31,11 +31,8 @@ if (isFirebaseConfigured) {
     rtdb = getDatabase(app);
     googleProvider = new GoogleAuthProvider();
   } catch (err) {
-    console.warn('Firebase initialization error, fallback to offline-mode:', err);
+    console.warn('Firebase initialization error:', err);
   }
-} else {
-  console.info('Firebase keys not fully set. Running in 100% offline local-storage mode.');
 }
 
 export { app, auth, rtdb, rtdb as db, googleProvider, isFirebaseConfigured };
-

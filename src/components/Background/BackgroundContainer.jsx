@@ -1,9 +1,16 @@
 import React from 'react';
 import CanvasBackground from './CanvasBackground';
+import videosData from '../../data/videos.json';
 
+// Combine video media files from media/video (loaded via json) with procedural and image wallpapers
 export const BACKGROUND_OPTIONS = [
-  { id: 'video_local_1', name: 'Minimal Video Scene (Local)', type: 'video', src: '/media/video/208812.mp4' },
-  { id: 'video_local_2', name: 'Lo-Fi Rain Video (Local)', type: 'video', src: '/media/video/209204.qt' },
+  ...videosData.map((v) => ({
+    id: v.id,
+    name: v.name,
+    type: 'video',
+    src: v.src,
+    fileType: v.fileType,
+  })),
   { id: 'canvas_rain', name: 'Procedural Rain Window', type: 'canvas', subType: 'canvas_rain' },
   { id: 'canvas_stars', name: 'Deep Space & Stars', type: 'canvas', subType: 'canvas_stars' },
   { id: 'canvas_fog', name: 'Forest Mist & Fog', type: 'canvas', subType: 'canvas_fog' },
@@ -14,8 +21,8 @@ export const BACKGROUND_OPTIONS = [
 ];
 
 export default function BackgroundContainer({ settings }) {
-  const activeBgId = settings?.activeBackground || 'canvas_rain';
-  const currentBg = BACKGROUND_OPTIONS.find(b => b.id === activeBgId) || BACKGROUND_OPTIONS[2];
+  const activeBgId = settings?.activeBackground || 'video_208812';
+  const currentBg = BACKGROUND_OPTIONS.find(b => b.id === activeBgId) || BACKGROUND_OPTIONS[0];
   const opacity = settings?.backgroundOpacity ?? 0.75;
   const blur = settings?.backgroundBlur ?? 0;
 
@@ -32,6 +39,7 @@ export default function BackgroundContainer({ settings }) {
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
           style={{ filter: `blur(${blur}px)` }}
         >
+          <source src={currentBg.src} type={currentBg.fileType || 'video/mp4'} />
           <source src={currentBg.src} type="video/mp4" />
           <source src={currentBg.src} type="video/quicktime" />
         </video>

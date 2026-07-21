@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,27 +6,32 @@
 
 @layer base {
   :root {
-    --color-primary: 34, 197, 94;
+    --color-accent-rgb: 34, 197, 94;
+    --color-accent-hex: #22c55e;
   }
-  
+
   body {
     user-select: none;
     -webkit-user-select: none;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #090d16;
+    color: #f8fafc;
   }
 
-  /* Custom subtle scrollbar */
+  /* Custom glassmorphic scrollbar */
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
+    background: rgba(15, 23, 42, 0.3);
   }
 
   ::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
+    border-radius: 9999px;
+    backdrop-filter: blur(10px);
   }
 
   ::-webkit-scrollbar-thumb:hover {
@@ -34,37 +39,83 @@
   }
 }
 
+/* Instant UI Responsiveness - Remove sluggish motion animation delays */
+.animate-fadeIn,
+.animate-pulse,
+.animate-bounce {
+  animation: none !important;
+}
+
+/* Authentic Black Ops One font style for Pomodoro timer */
 .font-digital {
-  font-family: 'VT323', monospace, sans-serif;
+  font-family: 'Black Ops One', cursive, sans-serif;
   letter-spacing: 4px;
 }
 
-/* Crisp glassmorphic components without unnecessary heavy blurs */
+/* Production-Grade Glassmorphism UI System */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .glass-panel-light {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .glass-pill {
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.glow-primary {
-  box-shadow: 0 0 15px rgba(34, 197, 94, 0.25);
+.glass-input {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.glow-accent {
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.25);
+/* Dynamic Theme Accent Utilities */
+.theme-emerald {
+  --color-accent-rgb: 34, 197, 94;
+  --color-accent-hex: #22c55e;
+}
+
+.theme-cyan {
+  --color-accent-rgb: 6, 182, 212;
+  --color-accent-hex: #06b6d4;
+}
+
+.theme-purple {
+  --color-accent-rgb: 168, 85, 247;
+  --color-accent-hex: #a855f7;
+}
+
+.theme-rose {
+  --color-accent-rgb: 244, 63, 94;
+  --color-accent-hex: #f43f5e;
+}
+
+.theme-amber {
+  --color-accent-rgb: 245, 158, 11;
+  --color-accent-hex: #f59e0b;
+}
+
+.theme-orange {
+  --color-accent-rgb: 249, 115, 22;
+  --color-accent-hex: #f97316;
 }
 
 /* Slider styling */
 input[type=range] {
-  accent-color: #22c55e;
+  accent-color: var(--color-accent-hex);
 }
