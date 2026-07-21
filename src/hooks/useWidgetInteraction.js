@@ -76,6 +76,14 @@ export function useWidgetInteraction({
         x: Math.max(minX, Math.min(maxX, newX)),
         y: Math.max(minY, Math.min(maxY, newY)),
       };
+    } else if (positionMode === 'offsetRightCenter') {
+      const minX = -(window.innerWidth - panelWidth - 30);
+      const maxX = 0;
+      const maxOffsetY = Math.max(10, (window.innerHeight - panelHeight) / 2 - 10);
+      return {
+        x: Math.max(minX, Math.min(maxX, newX)),
+        y: Math.max(-maxOffsetY, Math.min(maxOffsetY, newY)),
+      };
     }
     return { x: newX, y: newY };
   };

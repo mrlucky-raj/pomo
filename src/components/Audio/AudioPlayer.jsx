@@ -11,8 +11,6 @@ import {
   FileText,
   Image,
   Settings,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { getTheme } from '../../utils/theme';
 import songsData from '../../data/songs.json';
@@ -29,11 +27,10 @@ function AudioPlayerUI({
   onSelectTrack,
   onOpenBackground,
   onOpenSettings,
-  onOpenNotes,
+  onToggleNotesWidget,
+  showNotesWidget = true,
   onToggleTodoList,
   showTodoList = true,
-  onToggleZenMode,
-  isZenMode = false,
   themeColor = 'emerald',
 }) {
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
@@ -136,7 +133,7 @@ function AudioPlayerUI({
           </button>
         </div>
 
-        {/* Unified Tool Buttons Bar (To-Do Toggle, Notes, Background, Settings, Zen) */}
+        {/* Unified Tool Buttons Bar (To-Do Toggle, Sticky Quick Note Toggle, Background, Settings) */}
         <div className="flex items-center space-x-1">
           {/* To-Do Toggle Button */}
           {onToggleTodoList && (
@@ -153,12 +150,16 @@ function AudioPlayerUI({
             </button>
           )}
 
-          {/* Notes Button */}
-          {onOpenNotes && (
+          {/* Sticky Quick Note Toggle Button */}
+          {onToggleNotesWidget && (
             <button
-              onClick={onOpenNotes}
-              className="p-2 rounded-xl bg-slate-900/40 border border-white/5 text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
-              title="Focus Notes & Scratchpad"
+              onClick={onToggleNotesWidget}
+              className={`p-2 rounded-xl border transition-all ${
+                showNotesWidget
+                  ? `${theme.bgLight} ${theme.textLight} ${theme.border}`
+                  : 'bg-slate-900/40 border-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+              }`}
+              title={showNotesWidget ? 'Hide Quick Note Widget' : 'Show Quick Note Widget'}
             >
               <FileText className="w-3.5 h-3.5" />
             </button>
@@ -183,17 +184,6 @@ function AudioPlayerUI({
               title="Preferences & Settings"
             >
               <Settings className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* Zen Focus Mode */}
-          {onToggleZenMode && (
-            <button
-              onClick={onToggleZenMode}
-              className="p-2 rounded-xl bg-slate-900/60 border border-slate-700 text-slate-300 hover:text-white transition-colors"
-              title="Toggle Zen Focus Mode"
-            >
-              {isZenMode ? <EyeOff className="w-3.5 h-3.5 text-emerald-400" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>

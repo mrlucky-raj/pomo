@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import BackgroundContainer from './components/Background/BackgroundContainer';
 import PomodoroTimer from './components/Timer/PomodoroTimer';
 import QuickTodoList from './components/Tasks/QuickTodoList';
+import QuickNotesWidget from './components/Notes/QuickNotesWidget';
 import AudioPlayerUI, { MUSIC_TRACKS } from './components/Audio/AudioPlayer';
 import QuoteWidget from './components/Quotes/QuoteWidget';
 
 import { storage } from './services/storage';
 import { getTheme } from './utils/theme';
-import { Home, BarChart2, Eye } from 'lucide-react';
+import { Home, BarChart2 } from 'lucide-react';
 
 // Lazy load heavy page sections and modals for lightning-fast initial load & low RAM memory usage
 const StatsPage = lazy(() => import('./components/Stats/StatsPage'));
@@ -16,7 +17,6 @@ const TaskDrawerModal = lazy(() => import('./components/Tasks/TaskDrawerModal'))
 const BackgroundPickerModal = lazy(() => import('./components/Background/BackgroundPickerModal'));
 const AnalyticsModal = lazy(() => import('./components/Analytics/AnalyticsModal'));
 const AuthModal = lazy(() => import('./components/Auth/AuthModal'));
-const NotesModal = lazy(() => import('./components/Notes/NotesModal'));
 
 export default function App() {
   // Data States loaded from Storage
@@ -32,13 +32,12 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
 
   // UI Visibility & Modals
-  const [isZenMode, setIsZenMode] = useState(false);
+  const [showNotesWidget, setShowNotesWidget] = useState(true);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isBackgroundOpen, setIsBackgroundOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isNotesOpen, setIsNotesOpen] = useState(false);
 
   // Background Audio Engine State (Persists across all page navigation)
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
@@ -208,42 +207,37 @@ export default function App() {
       {/* 2. Dynamic Ambient Background Engine */}
       <BackgroundContainer settings={settings} />
 
-      {/* 3. Top Header Navigation */}
-      <header className={`relative z-40 flex items-center justify-between p-4 sm:p-6 transition-opacity duration-75 ${
-        isZenMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      }`}>
-        <div className="w-10" />
-
-        {/* Top-Middle: Navigation Dock */}
+      {/* 3. Top Header Navigation (Nav Dock at top-right corner, auto-hides on desktop & reveals on hover) */}
+      <header className="relative z-40 flex items-center justify-end p-4 sm:p-6">
         {showNavBtns && (
-          <nav className="fixed left-1/2 -translate-x-1/2 top-4 flex items-center p-1.5 rounded-full glass-panel shadow-2xl border border-white/10 z-50">
-            <button
-              onClick={() => setCurrentPage('home')}
-              className={`p-2.5 rounded-full transition-colors duration-75 flex items-center justify-center ${
-                currentPage === 'home'
-                  ? `${theme.bg} ${theme.textDark} ${theme.glow}`
-                  : 'text-slate-400 hover:text-white hover:bg-white/10'
-              }`}
-              title="Home Workspace"
-            >
-              <Home className="w-5 h-5" />
-            </button>
+          <div className="fixed right-6 top-4 z-50 group">
+            <nav className="flex items-center p-1.5 rounded-full glass-panel shadow-2xl border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300">
+              <button
+                onClick={() => setCurrentPage('home')}
+                className={`p-2.5 rounded-full transition-colors duration-75 flex items-center justify-center ${
+                  currentPage === 'home'
+                    ? `${theme.bg} ${theme.textDark} ${theme.glow}`
+                    : 'text-slate-400 hover:text-white hover:bg-white/10'
+                }`}
+                title="Home Workspace"
+              >
+                <Home className="w-5 h-5" />
+              </button>
 
-            <button
-              onClick={() => setCurrentPage('stats')}
-              className={`p-2.5 rounded-full transition-colors duration-75 flex items-center justify-center ${
-                currentPage === 'stats'
-                  ? `${theme.bg} ${theme.textDark} ${theme.glow}`
-                  : 'text-slate-400 hover:text-white hover:bg-white/10'
-              }`}
-              title="Study Analytics & States"
-            >
-              <BarChart2 className="w-5 h-5" />
-            </button>
-          </nav>
+              <button
+                onClick={() => setCurrentPage('stats')}
+                className={`p-2.5 rounded-full transition-colors duration-75 flex items-center justify-center ${
+                  currentPage === 'stats'
+                    ? `${theme.bg} ${theme.textDark} ${theme.glow}`
+                    : 'text-slate-400 hover:text-white hover:bg-white/10'
+                }`}
+                title="Study Analytics & States"
+              >
+                <BarChart2 className="w-5 h-5" />
+              </button>
+            </nav>
+          </div>
         )}
-
-        <div className="w-10" />
       </header>
 
       {/* 4. Page Content Viewport with Suspense Code Splitting */}
@@ -252,9 +246,7 @@ export default function App() {
           <div className="relative w-full flex-1 flex flex-col items-center justify-center min-h-[75vh]">
             {/* Draggable Quick Tasks Panel */}
             {showTodoList && (
-              <div className={`transition-opacity duration-75 ${
-                isZenMode ? 'opacity-0 pointer-events-none' : 'opacity-100'
-              }`}>
+              <div>
                 <QuickTodoList
                   tasks={tasks}
                   activeTaskId={activeTaskId}
@@ -267,9 +259,16 @@ export default function App() {
               </div>
             )}
 
+            {/* Draggable Sticky Quick Note Widget */}
+            {showNotesWidget && (
+              <div>
+                <QuickNotesWidget themeColor={settings.themeColor} />
+              </div>
+            )}
+
             {/* Draggable 8-Bit Pomodoro Timer Panel */}
             {showTimer && (
-              <div className={`transition-transform duration-75 ${isZenMode ? 'scale-110' : 'scale-100'}`}>
+              <div>
                 <PomodoroTimer
                   settings={settings}
                   activeTask={activeTask}
@@ -287,14 +286,14 @@ export default function App() {
 
             {/* Draggable Quotes Widget Panel */}
             {showQuotes && (
-              <div className="transition-opacity duration-75 opacity-100">
+              <div>
                 <QuoteWidget themeColor={settings.themeColor} />
               </div>
             )}
 
             {/* Unified Bottom-Left Dock (Music Player + Tools) */}
-            {showMusicPlayer && !isZenMode && (
-              <div className="fixed bottom-6 left-6 z-30">
+            {showMusicPlayer && (
+              <div className="fixed bottom-6 left-6 z-50">
                 <AudioPlayerUI
                   isPlaying={isPlayingMusic}
                   currentTrack={currentTrack}
@@ -304,11 +303,10 @@ export default function App() {
                   onSelectTrack={handleSelectTrack}
                   onOpenBackground={() => setIsBackgroundOpen(true)}
                   onOpenSettings={() => setIsSettingsOpen(true)}
-                  onOpenNotes={() => setIsNotesOpen(true)}
+                  onToggleNotesWidget={() => setShowNotesWidget(!showNotesWidget)}
+                  showNotesWidget={showNotesWidget}
                   onToggleTodoList={() => handleUpdateSettings({ showTodoList: !showTodoList })}
                   showTodoList={showTodoList}
-                  onToggleZenMode={() => setIsZenMode(!isZenMode)}
-                  isZenMode={isZenMode}
                   themeColor={settings.themeColor}
                 />
               </div>
@@ -327,17 +325,6 @@ export default function App() {
           </Suspense>
         )}
       </main>
-
-      {/* Zen Mode Exit Button */}
-      {isZenMode && (
-        <button
-          onClick={() => setIsZenMode(false)}
-          className="fixed top-6 right-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white transition-all shadow-2xl animate-pulse"
-          title="Exit Zen Mode"
-        >
-          <Eye className="w-5 h-5 text-emerald-400" />
-        </button>
-      )}
 
       {/* 5. Lazy Loaded Modals (Zero RAM impact when closed) */}
       <Suspense fallback={null}>
@@ -387,13 +374,6 @@ export default function App() {
             onClose={() => setIsSettingsOpen(false)}
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
-          />
-        )}
-
-        {isNotesOpen && (
-          <NotesModal
-            isOpen={isNotesOpen}
-            onClose={() => setIsNotesOpen(false)}
           />
         )}
       </Suspense>

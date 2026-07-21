@@ -259,12 +259,12 @@ function PomodoroTimer({
       {/* Minimal Digital Clock Display */}
       <div className="relative flex flex-col items-center justify-center py-2 px-4">
         {/* Silhouette Background 88:88 */}
-        <div className="relative flex items-center justify-center font-digital">
-          <span className={`${fontSizeClass} font-bold tracking-widest text-slate-800/30 select-none`}>
+        <div className="relative flex items-center justify-center font-digital tabular-nums">
+          <span className={`${fontSizeClass} font-bold tracking-[0.15em] text-slate-800/20 select-none`}>
             88:88
           </span>
-          {/* Active Glowing LED Digits */}
-          <span className={`absolute ${fontSizeClass} font-bold tracking-widest drop-shadow-[0_0_25px_rgba(0,0,0,0.5)] ${digitColor}`}>
+          {/* Active LED Digits */}
+          <span className={`absolute ${fontSizeClass} font-bold tracking-[0.15em] tabular-nums ${digitColor}`}>
             {formattedTime}
           </span>
         </div>
